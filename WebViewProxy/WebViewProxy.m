@@ -2,7 +2,8 @@
 
 static NSMutableArray* requestMatchers;
 static NSPredicate* webViewUserAgentTest;
-static NSPredicate* webViewProxyLoopDetection;
+//static NSPredicate* webViewProxyLoopDetection;
+static NSString * webViewProxyFlagKey;
 
 // A request matcher, which matches a UIWebView request to a registered WebViewProxyHandler
 @interface WVPRequestMatcher : NSObject
@@ -223,7 +224,12 @@ static NSPredicate* webViewProxyLoopDetection;
 + (BOOL)canInitWithRequest:(NSURLRequest *)request {
     NSString* userAgent = request.allHTTPHeaderFields[@"User-Agent"];
     if (userAgent && ![webViewUserAgentTest evaluateWithObject:userAgent]) { return NO; }
-    if ([webViewProxyLoopDetection evaluateWithObject:request.URL]) { return NO; }
+    //if ([webViewProxyLoopDetection evaluateWithObject:request.URL]) { return NO; }
+    NSString* proxyFlag = request.allHTTPHeaderFields[webViewProxyFlagKey];
+    if (proxyFlag) {
+        return NO;
+    }
+
     return ([self findRequestMatcher:request.URL] != nil);
 }
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request {
@@ -239,14 +245,14 @@ static NSPredicate* webViewProxyLoopDetection;
     if (self = [super initWithRequest:request cachedResponse:cachedResponse client:client]) {
         // TODO How to handle cachedResponse?
         _correctedRequest = request.mutableCopy;
-        NSString* correctedFragment;
-        if (_correctedRequest.URL.fragment) {
-            correctedFragment = @"__webviewproxyreq__";
-        } else {
-            correctedFragment = @"#__webviewproxyreq__";
-        }
-        _correctedRequest.URL = [NSURL URLWithString:[request.URL.absoluteString stringByAppendingString:correctedFragment]];
-
+//        NSString* correctedFragment;
+//        if (_correctedRequest.URL.fragment) {
+//            correctedFragment = @"__webviewproxyreq__";
+//        } else {
+//            correctedFragment = @"#__webviewproxyreq__";
+//        }
+//        _correctedRequest.URL = [NSURL URLWithString:[request.URL.absoluteString stringByAppendingString:correctedFragment]];
+        [_correctedRequest addValue:[@(YES) stringValue] forHTTPHeaderField:webViewProxyFlagKey];
         self.requestMatcher = [self.class findRequestMatcher:request.URL];
         self.proxyResponse = [[WVPResponse alloc] _initWithRequest:request protocol:self];
     }
@@ -273,7 +279,7 @@ static NSPredicate* webViewProxyLoopDetection;
 + (void)initialize {
     [WebViewProxy removeAllHandlers];
     webViewUserAgentTest = [NSPredicate predicateWithFormat:@"self MATCHES '^Mozilla.*Mac OS X.*'"];
-    webViewProxyLoopDetection = [NSPredicate predicateWithFormat:@"self.fragment ENDSWITH '__webviewproxyreq__'"];
+    //webViewProxyLoopDetection = [NSPredicate predicateWithFormat:@"self.fragment ENDSWITH '__webviewproxyreq__'"];
     // e.g. "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10A403"
     [NSURLProtocol registerClass:[WebViewProxyURLProtocol class]];
 }
